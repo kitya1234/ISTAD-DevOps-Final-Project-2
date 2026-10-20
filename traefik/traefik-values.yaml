@@ -1,0 +1,56 @@
+# Traefik v3 Ingress Controller Configuration
+# Replaces default NGINX Ingress Controller
+
+deployment:
+  enabled: true
+  replicas: 2
+
+ingressClass:
+  enabled: true
+  isDefaultClass: true
+  name: traefik
+
+service:
+  enabled: true
+  type: NodePort
+  nodePorts:
+    web: 30080
+    websecure: 30443
+
+ports:
+  web:
+    port: 8000
+    expose:
+      default: true
+    exposedPort: 80
+    protocol: TCP
+    redirectTo:
+      port: websecure
+  websecure:
+    port: 8443
+    expose:
+      default: true
+    exposedPort: 443
+    protocol: TCP
+    tls:
+      enabled: true
+
+ingressRoute:
+  dashboard:
+    enabled: true
+    matchRule: Host(`traefik.devops.local`)
+    entryPoints: ["websecure"]
+
+providers:
+  kubernetesCRD:
+    enabled: true
+  kubernetesIngress:
+    enabled: true
+    publishedService:
+      enabled: true
+
+logs:
+  general:
+    level: INFO
+  access:
+    enabled: true

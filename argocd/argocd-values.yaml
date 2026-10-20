@@ -1,0 +1,23 @@
+# ArgoCD Helm Values Configuration
+global:
+  domain: argocd.devops.local
+
+server:
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    annotations:
+      traefik.ingress.kubernetes.io/router.entrypoints: websecure
+      traefik.ingress.kubernetes.io/router.tls: "true"
+    hostname: argocd.devops.local
+    paths:
+      - /
+    pathType: Prefix
+    tls: false
+
+  extraArgs:
+    - --insecure # Traefik handles TLS termination
+
+configs:
+  params:
+    server.insecure: true

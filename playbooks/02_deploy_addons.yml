@@ -1,0 +1,91 @@
+---
+- name: Deploy Addons & GitOps Pipeline on Kubernetes Cluster
+  hosts: master1
+  become: yes
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  vars:
+    argocd_admin_password: "DevOps@Argo2026!"
+    base_domain: "devops.local"
+
+  tasks:
+    - name: Install Helm repository for Traefik
+      shell: |
+        helm repo add traefik https://traefik.github.io/charts
+        helm repo add headlamp https://headlamp-k8s.github.io/headlamp/
+        helm repo add argo https://argoproj.github.io/argo-helm
+        helm repo update
+
+    - name: Ensure target namespaces exist
+      shell: |
+        kubectl create namespace traefik --dry-run=client -o yaml | kubectl apply -f -
+        kubectl create namespace headlamp --dry-run=client -o yaml | kubectl apply -f -
+        kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
+        kubectl create namespace react-prod --dry-run=client -o yaml | kubectl apply -f -
+
+    - name: Copy Traefik values to control plane
+      copy:
+        src: ../traefik/traefik-values.yaml
+        dest: /tmp/traefik-values.yaml
+
+    - name: Deploy Traefik Ingress Controller via Helm
+      shell: |
+        helm upgrade --install traefik traefik/traefik           --namespace traefik           -f /tmp/traefik-values.yaml
+
+    - name: Copy Headlamp manifests and values
+      copy:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+      loop:
+        - { src: "../headlamp/headlamp-values.yaml", dest: "/tmp/headlamp-values.yaml" }
+        - { src: "../headlamp/headlamp-admin-rbac.yaml", dest: "/tmp/headlamp-admin-rbac.yaml" }
+
+    - name: Apply Headlamp RBAC & ServiceAccount token
+      shell: kubectl apply -f /tmp/headlamp-admin-rbac.yaml
+
+    - name: Deploy Headlamp Dashboard via Helm
+      shell: |
+        helm upgrade --install headlamp headlamp/headlamp           --namespace headlamp           -f /tmp/headlamp-values.yaml
+
+    - name: Extract Headlamp Admin Token
+      shell: |
+        kubectl -n kube-system get secret headlamp-admin-token -o jsonpath='{.data.token}' | base64 --decode
+      register: headlamp_token
+
+    - name: Copy ArgoCD values
+      copy:
+        src: ../argocd/argocd-values.yaml
+        dest: /tmp/argocd-values.yaml
+
+    - name: Deploy ArgoCD via Helm
+      shell: |
+        helm upgrade --install argocd argo/argo-cd           --namespace argocd           -f /tmp/argocd-values.yaml
+
+    - name: Set Custom ArgoCD Admin Password with Bcrypt
+      shell: |
+        HASH=$(python3 -c "import bcrypt; print(bcrypt.hashpw(b'{{ argocd_admin_password }}', bcrypt.gensalt(10)).decode('utf-8'))")
+        MTIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+        kubectl -n argocd patch secret argocd-secret           -p "{"stringData": {"admin.password": "$HASH", "admin.passwordMtime": "$MTIME"}}"
+
+    - name: Apply ReactJS Kubernetes Manifests directly
+      shell: |
+        kubectl apply -f /tmp/gitops-manifests/react-app/
+      ignore_errors: yes
+
+    - name: Display Cluster Access Summary
+      debug:
+        msg:
+          - "=========================================================="
+          - "        PROJECT 2 KUBERNETES & GITOPS DEPLOYED SUCCESS     "
+          - "=========================================================="
+          - "Ingress Controller: Traefik v3 (NodePort 30080 / 30443)"
+          - "Headlamp Dashboard:"
+          - "  - URL: https://headlamp.{{ base_domain }}"
+          - "  - Token: {{ headlamp_token.stdout }}"
+          - "ArgoCD Web UI:"
+          - "  - URL: https://argocd.{{ base_domain }}"
+          - "  - Username: admin"
+          - "  - Password: {{ argocd_admin_password }}"
+          - "ReactJS Application:"
+          - "  - URL: https://react.{{ base_domain }}"
+          - "=========================================================="

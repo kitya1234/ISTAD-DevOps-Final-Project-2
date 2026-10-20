@@ -1,0 +1,14 @@
+---
+# Kubernetes Addons Configuration
+
+# MANDATORY: Disable default NGINX ingress controller (Traefik will be used instead)
+ingress_nginx_enabled: false
+
+# Enable Helm v3 package manager
+helm_enabled: true
+
+# Enable Kubernetes Metrics Server for monitoring & HPA
+metrics_server_enabled: true
+
+# Enable local-path storage provisioner for dynamic PV creation
+local_path_provisioner_enabled: true

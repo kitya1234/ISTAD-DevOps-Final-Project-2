@@ -1,0 +1,29 @@
+# Headlamp Kubernetes Dashboard Configuration
+replicaCount: 1
+
+ingress:
+  enabled: true
+  ingressClassName: traefik
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+  hosts:
+    - host: headlamp.devops.local
+      paths:
+        - path: /
+          type: Prefix
+
+config:
+  oidc:
+    clientID: ""
+    issuerURL: ""
+    clientSecret: ""
+    scopes: ""
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi

@@ -1,0 +1,20 @@
+---
+cluster_name: cluster.local
+kube_version: v1.30.2
+
+# Container Engine
+container_manager: containerd
+
+# Networking plugin
+kube_network_plugin: calico
+
+# Kubernetes Network Configuration
+kube_service_addresses: 10.233.0.0/18
+kube_pods_subnet: 10.233.64.0/18
+
+# DNS configuration
+dns_mode: coredns
+
+# Allow unprivileged users to access kubectl
+kubeconfig_localhost: true
+kubectl_localhost: true

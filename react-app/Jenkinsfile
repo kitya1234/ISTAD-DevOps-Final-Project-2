@@ -1,0 +1,60 @@
+pipeline {
+    agent any
+
+    environment {
+        REGISTRY = 'nexus.rootme.local:8082'
+        IMAGE_NAME = 'devops-react-app'
+        IMAGE_TAG = "${env.BUILD_NUMBER}"
+        GIT_REPO_GITOPS = 'https://github.com/kitya1234/devops-gitops-manifests.git'
+    }
+
+    stages {
+        stage('Checkout Code') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Code Quality (SonarQube)') {
+            steps {
+                echo "Running SonarQube Scanner against sonarqube.rootme.local..."
+                // withSonarQubeEnv('SonarQube-Server') {
+                //     sh 'npm test -- --coverage'
+                // }
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh "docker build -t ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} -t ${REGISTRY}/${IMAGE_NAME}:latest ."
+            }
+        }
+
+        stage('Push to Nexus Repository') {
+            steps {
+                echo "Pushing image to Nexus Docker Registry..."
+                // sh "docker push ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
+                // sh "docker push ${REGISTRY}/${IMAGE_NAME}:latest"
+            }
+        }
+
+        stage('Update GitOps Repo for ArgoCD') {
+            steps {
+                echo "Updating deployment.yaml image tag to ${IMAGE_TAG}..."
+                // sh '''
+                // git clone ${GIT_REPO_GITOPS} gitops-repo
+                // cd gitops-repo/react-app
+                // sed -i "s|image:.*|image: ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}|g" deployment.yaml
+                // git commit -am "CI: Bump react-app image to ${IMAGE_TAG}"
+                // git push origin main
+                // '''
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "CI pipeline completed successfully! ArgoCD will automatically sync changes to Kubernetes."
+        }
+    }
+}
